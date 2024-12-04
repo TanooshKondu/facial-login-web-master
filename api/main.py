@@ -84,5 +84,5 @@ def result():
     result = result[:len(result)-4]
     return render_template('result.html', result=result)
 
-# if __name__ == '__main__':
-#     app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)
