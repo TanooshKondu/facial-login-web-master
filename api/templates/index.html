@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Capture</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f0f0;
+        }
+
+        #camera-container {
+            text-align: center;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        #video {
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        #capture-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        #capture-button:hover {
+            background-color: #45a049;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        #facial-recognition {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: none;
+            z-index: 9999;
+        }
+
+        #facial-recognition .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 0 auto;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media only screen and (max-width: 600px) {
+            h1 {
+                font-size: 20px;
+            }
+
+            #capture-button {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="camera-container">
+        <h1>Image Capture</h1>
+        <video id="video" autoplay></video>
+        <button id="capture-button">Capture Image</button>
+    </div>
+
+    <div id="facial-recognition">
+        <div class="loader"></div>
+        <p>Recognizing...</p>
+    </div>
+
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <script>
+        $(document).ready(function() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const captureButton = document.getElementById('capture-button');
+            const facialRecognition = document.getElementById('facial-recognition');
+    
+            function showFacialRecognitionLoader() {
+                facialRecognition.style.display = 'block';
+            }
+    
+            function hideFacialRecognitionLoader() {
+                facialRecognition.style.display = 'none';
+            }
+    
+            // Access the camera and stream video
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                })
+                .catch(function(err) {
+                    console.error('Error accessing camera:', err);
+                });
+    
+            // Capture image from video stream
+            captureButton.addEventListener('click', function() {
+                showFacialRecognitionLoader();
+    
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+                // Convert captured image to base64 data URL
+                const imageData = canvas.toDataURL('image/jpeg');
+    
+                // Sending image data to the server via AJAX POST request
+                $.ajax({
+                    type: 'POST',
+                    url: '/upload_image',
+                    data: JSON.stringify({ image_data: imageData }),
+                    contentType: 'application/json',
+                    beforeSend: function() {
+                        // Show loading bar before sending the request
+                        $('#progress-bar').css('width', '0%').attr('aria-valuenow', 0);
+                        $('#progress-bar').removeClass('bg-success').addClass('bg-info');
+                    },
+                    xhr: function() {
+                        var xhr = new window.XMLHttpRequest();
+                        xhr.upload.addEventListener("progress", function(evt) {
+                            if (evt.lengthComputable) {
+                                var percentComplete = (evt.loaded / evt.total) * 100;
+                                $('#progress-bar').css('width', percentComplete + '%').attr('aria-valuenow', percentComplete);
+                            }
+                        }, false);
+                        return xhr;
+                    },
+                    success: function(response) {
+                        // Redirect to new page and pass the result as query parameter
+                        window.location.href = '/result?result=' + response.message;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error uploading image:', error);
+                    },
+                    complete: function() {
+                        // Hide loading bar after request is complete
+                        $('#progress-bar').removeClass('bg-info').addClass('bg-success');
+                        $('#progress-bar').css('width', '100%').attr('aria-valuenow', 100);
+                        hideFacialRecognitionLoader();
+                    }
+                });
+            });
+        });
+    </script>
+    
+</body>
+</html>
